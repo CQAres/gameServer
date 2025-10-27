@@ -18,17 +18,19 @@ public:
 	~EventLoop();
 
 	/*
-	* 
+	* @brief 事件循环
 	*/
 	void loop();
 
 	/*
-	* epoll channel
+	* @brief 更新Channel
+	* @param channel 需要更新的事件通道指针
 	*/
 	void updateChannel(const ChannelPtr& channel);
 
 	/*
-	* 
+	* @brief 添加线程
+	* @param function 线程函数
 	*/
 	void addThread(std::function<void()>);
 };

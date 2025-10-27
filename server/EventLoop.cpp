@@ -16,9 +16,6 @@ void EventLoop::loop() {
 	while (!this->quit)
 	{
 		std::vector<ChannelPtr>chs;
-		// 获取触发事件通道
-		// 每个Channel对象代表一个事件源（如一个套接字）
-		// 逐个处理事件
 		chs = this->epollPoller->poll();
 		for (auto it = chs.begin(); it != chs.end(); ++it)
 		{
