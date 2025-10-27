@@ -22,9 +22,7 @@ public:
     Server(EventLoop* _loop);
 
     ~Server();
-
-    void handleReadEvent(int);
-
+    
     /**
     * @brief 处理新连接请求，并将其分配到子reactor中
     * @param sock 指向新连接的Socket对象的指针

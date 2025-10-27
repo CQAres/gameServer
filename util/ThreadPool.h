@@ -23,10 +23,17 @@ public:
     * @param size 线程池大小，默认为硬件线程数
     */
     ThreadPool(int size = std::thread::hardware_concurrency());
-    
+
+    /**
+     * @brief 销毁线程池
+     * @brief 停止所有线程并等待它们完成当前任务
+     */
     ~ThreadPool();
 
-    // void add(std::function<void()>);
+    /**
+     * @brief 向线程池中添加一个任务
+     * @param f 任务函数
+     */
     template<class F, class... Args>
     auto add(F&& f, Args&&... args) 
     -> std::future<typename std::result_of<F(Args...)>::type>;
