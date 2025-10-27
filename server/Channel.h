@@ -3,6 +3,7 @@
 class Socket;
 class EventLoop;
 
+// 事件通道类，封装文件描述符和事件回调
 class Channel
 {
 private:

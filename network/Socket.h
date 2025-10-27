@@ -1,6 +1,7 @@
 #pragma once
 #include "ItnetAddress.h"
 
+// socket类
 class Socket
 {
 private:
