@@ -15,7 +15,7 @@ EventLoop::~EventLoop() {
 void EventLoop::loop() {
 	while (!this->quit)
 	{
-		std::vector<ChannelPtr>chs;
+		std::vector<Channel*>chs;
 		chs = this->epollPoller->poll();
 		for (auto it = chs.begin(); it != chs.end(); ++it)
 		{
@@ -24,6 +24,6 @@ void EventLoop::loop() {
 	}
 }
 
-void EventLoop::updateChannel(const ChannelPtr& channel) {
+void EventLoop::updateChannel(Channel* channel) {
 	this->epollPoller->updateChannels(channel);
 }

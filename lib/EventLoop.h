@@ -4,8 +4,6 @@
 class EpollPoller;
 class Channel;
 
-using ChannelPtr = std::shared_ptr<Channel>;  // 智能指针
-
 // 事件循环类
 class EventLoop
 {
@@ -26,7 +24,7 @@ public:
 	* @brief 更新Channel
 	* @param channel 需要更新的事件通道指针
 	*/
-	void updateChannel(const ChannelPtr& channel);
+	void updateChannel(Channel* channel);
 
 	/*
 	* @brief 添加线程

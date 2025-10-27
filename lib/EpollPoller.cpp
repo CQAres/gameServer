@@ -21,26 +21,20 @@ EpollPoller::~EpollPoller() {
     delete [] this->events;
 }
 
-std::vector<ChannelPtr> EpollPoller::poll(int timeout) {
-    std::vector<ChannelPtr> activeChannels;
+std::vector<Channel*> EpollPoller::poll(int timeout) {
+    std::vector<Channel*> activeChannels;
     // 用epoll_wait等待事件并返回活跃的Channel列表
     int nfds = epoll_wait(this->fd, this->events, MAX_EVENTS, timeout);
     ifError(nfds == -1, "epoll wait error");
     for (int i = 0; i < nfds; ++i) {
-        // 从 void* 中提取 std::weak_ptr<Channel>
-        auto weak_ch = static_cast<std::weak_ptr<Channel>*>(events[i].data.ptr);
-        // 通过 lock() 获取 std::shared_ptr<Channel>
-        ChannelPtr ch = weak_ch->lock();
-        if (ch) {
-            ch->setReady(events[i].events);
-            activeChannels.push_back(ch);
-        }
-        delete weak_ch;  // 删除临时的 weak_ptr 指针
+        Channel *ch = (Channel*)events[i].data.ptr;
+        ch->setReady(events[i].events);
+        activeChannels.push_back(ch);
     }
     return activeChannels;
 }
 
-void EpollPoller::updateChannels(const ChannelPtr& channel) {
+void EpollPoller::updateChannels(Channel* channel) {
     if (channel == nullptr) {
         ifError(true, "EpollPoller::updateChannels channel is nullptr");
     }
@@ -48,7 +42,7 @@ void EpollPoller::updateChannels(const ChannelPtr& channel) {
     bzero(&ev, sizeof(ev));
     int fd = channel->getFd();
     ev.events = channel->getEvents();
-    ev.data.ptr = channel.get();
+    ev.data.ptr = channel;
     if (!channel->getInEpoll()) {
         ifError(epoll_ctl(this->fd, EPOLL_CTL_ADD, fd, &ev) == -1, "epoll add error");
         channel->setInEpoll(true);
@@ -58,7 +52,7 @@ void EpollPoller::updateChannels(const ChannelPtr& channel) {
     }
 }
 
-void EpollPoller::deleteChannels(const ChannelPtr& channel) {
+void EpollPoller::deleteChannels(Channel* channel) {
     if (channel == nullptr) {
         ifError(true, "EpollPoller::deleteChannels channel is nullptr");
     }
