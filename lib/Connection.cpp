@@ -32,7 +32,7 @@ void Connection::echo(int sockfd){
     std::vector<char> buf(1024); //动态缓冲区
     while(true){    
         //由于使用非阻塞IO，读取客户端buffer，一次读取buf大小数据，直到全部读取完毕
-        ssize_t bytes_read = read(sockfd, buf.data(), sizeof(buf));
+        ssize_t bytes_read = read(sockfd, buf.data(), buf.size());
         if(bytes_read > 0){
             readBuffer->append(buf.data(), bytes_read);
         } else if(bytes_read == 0){  
