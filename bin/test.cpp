@@ -32,7 +32,7 @@ void oneClient(int msgs, int wait){
         int already_read = 0;
         std::vector<char> buf(1024);
         while(true){
-            bzero(&buf, sizeof(buf));
+            bzero(buf.data(), buf.size());
             ssize_t read_bytes = read(sockfd, buf.data(), buf.size());
             if(read_bytes > 0){
                 readBuffer->append(buf.data(), read_bytes);
@@ -53,8 +53,8 @@ void oneClient(int msgs, int wait){
 }
 
 int main(int argc, char *argv[]) {
-    int threads = 100;
-    int msgs = 100;
+    int threads = 10000;
+    int msgs = 10000;
     int wait = 0;
     int o;
     const char *optstring = "t:m:w:";

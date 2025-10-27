@@ -1,6 +1,6 @@
 #include "Connection.h"
-#include "Socket.h"
 #include "Channel.h"
+#include "network/Socket.h"
 #include "util/util.h"
 #include "util/Buffer.h"
 #include <unistd.h>

@@ -29,7 +29,7 @@ int main() {
         int already_read = 0;
         std::vector<char> buf(1024);
         while(true){
-            bzero(&buf, sizeof(buf));
+            bzero(buf.data(), buf.size());
             ssize_t read_bytes = read(sockfd, buf.data(), buf.size());
             if(read_bytes > 0){
                 readBuffer->append(buf.data(), read_bytes);
