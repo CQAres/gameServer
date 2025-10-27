@@ -5,6 +5,7 @@ class Socket;
 class Channel;
 class Buffer;
 
+// 连接类，封装每个客户端的连接
 class Connection
 {
 private:
