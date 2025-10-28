@@ -6,6 +6,11 @@
 #include <unordered_set>
 
 class MatchManager {
+private:
+    MatchManager() = default;
+    std::unordered_set<Connection*> matchPool; // 匹配池
+    std::mutex mtx;
+    
 public:
     static MatchManager& getInstance();
     void addPlayer(Connection* connection);
@@ -14,8 +19,5 @@ public:
 
     bool matching(Connection* connection);
 
-private:
-    MatchManager() = default;
-    std::unordered_set<Connection*> matchPool; // 匹配池
-    std::mutex mtx;
+    int getMatchPoolSize();
 };

@@ -23,6 +23,11 @@ void MatchManager::removePlayer(Connection* connection) {
     matchPool.erase(connection);
 }
 
+int MatchManager::getMatchPoolSize() {
+    std::lock_guard<std::mutex> lock(mtx);
+    return matchPool.size();
+}
+
 bool MatchManager::matching(Connection* connection) {
     std::lock_guard<std::mutex> lock(mtx);
     if (matchPool.find(connection) == matchPool.end()) {

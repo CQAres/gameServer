@@ -59,3 +59,13 @@ void Server::deleteConnection(int sockfd){
     // close(sockfd);
     delete conn;
 }
+
+int Server::getConnectionCount() {
+    return connections.size();
+}
+
+void Server::monitorMatchPool() {
+    MatchManager& manager = MatchManager::getInstance();
+    int poolSize = manager.getMatchPoolSize();
+    printf("[Server Monitor] Current matchPool size: %d\n", poolSize);
+}

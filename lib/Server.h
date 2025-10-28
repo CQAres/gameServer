@@ -1,6 +1,8 @@
 #pragma once
 #include <map>
 #include <vector>
+#include "MatchManager.h"
+
 class EventLoop;
 class Socket;
 class Acceptor;
@@ -13,7 +15,7 @@ private:
     Acceptor *acceptor;
     std::map<int, Connection*> connections; //连接池<sockfd, Connection*>
     std::vector<EventLoop*> subReactors; // 从reactor
-    ThreadPool *thpool;
+    ThreadPool *thpool; // 线程池
 public:
     /**
     @brief 初始化服务器实例。
@@ -36,4 +38,8 @@ public:
     * @note 调用此方法后，连接对象会被删除，但socket本身不会被关闭（注释中已说明）
     */
     void deleteConnection(int sockfd);
+
+    int getConnectionCount();
+
+    void monitorMatchPool();
 };
