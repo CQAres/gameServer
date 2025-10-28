@@ -61,4 +61,7 @@ public:
     void send(int sockfd, std::string message);
 
     int getSockfd();
+
+    void setState(ConnState _state);
+
 };

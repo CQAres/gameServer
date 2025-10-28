@@ -41,18 +41,6 @@ void Connection::echo(int sockfd){
         if(bytes_read > 0){
             readBuffer->append(buf.data(), bytes_read);
             handleMessage(readBuffer->c_str(), sockfd);
-
-            // 回显并清空缓冲区
-            if (!readBuffer->size() == 0) {
-                sendEco(sockfd);
-                readBuffer->clear(); 
-            }
-            // 检查是否主动断开连接
-            if (state == ConnState::EXITED) {
-                printf("client fd %d disconnected\n", sockfd);
-                deleteConnectionCallback(sockfd);           
-                return;
-            }
         } else if(bytes_read == 0){  
             //客户端主动断开连接
             printf("client fd %d disconnected\n", sockfd);
@@ -75,6 +63,17 @@ void Connection::echo(int sockfd){
                 break;
             }
         }
+    }
+    // 回显并清空缓冲区
+    if (!readBuffer->size() == 0) {
+        sendEco(sockfd);
+        readBuffer->clear(); 
+    }
+    // 检查是否主动断开连接
+    if (state == ConnState::EXITED) {
+        printf("client fd %d disconnected\n", sockfd);
+        deleteConnectionCallback(sockfd);           
+        return;
     }
 }
 
@@ -111,6 +110,11 @@ int Connection::getSockfd() {
     return this->sock->getFd();
 }
 
+void Connection::setState(ConnState _state) {
+    this->state = _state;
+    return;
+}
+
 void Connection::handleMessage(std::string _message, int sockfd) {
     if (_message == "start_match" && this->state == ConnState::LOBBY) {
         // 用户加入匹配池
@@ -136,9 +140,6 @@ void Connection::handleMessage(std::string _message, int sockfd) {
                 // 调用匹配逻辑
                 bool matched = MatchManager::getInstance().matching(this);
                 if (matched) {
-                    this->state = ConnState::IN_GAME;
-                    printf("User fd %d matched successfully\n", sockfd);
-                    this->send(sockfd,"Match found! Game started.\n");
                     break;
                 }
 

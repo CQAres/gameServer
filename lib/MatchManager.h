@@ -1,10 +1,9 @@
 #pragma once
+#include "Connection.h"
 #include <vector>
 #include <mutex>
 #include <functional>
 #include <unordered_set>
-
-class Connection;
 
 class MatchManager {
 public:
