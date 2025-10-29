@@ -2,6 +2,8 @@
 #include <functional>
 #include <string>
 #include <memory>
+#include <atomic>
+
 class EventLoop;
 class Socket;
 class Channel;
