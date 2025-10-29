@@ -15,7 +15,8 @@ Server::Server(EventLoop *_loop)
     // 创建线程池，线程数量与硬件支持的并发线程数相同
     // 为每个线程创建子Reactors，并将子Reactors的事件循环绑定到线程池中
     acceptor = new Acceptor(mainReactor);
-    std::function<void(Socket*)> cb = std::bind(&Server::newConnection, this, std::placeholders::_1);
+    std::function<void(Socket*)> cb =
+     std::bind(&Server::newConnection, this, std::placeholders::_1);
     acceptor->setNewConnectionCallback(cb);
 
     int size = std::thread::hardware_concurrency();
@@ -33,6 +34,9 @@ Server::Server(EventLoop *_loop)
 Server::~Server(){
     delete acceptor;
     delete thpool;
+    for (auto* loop : subReactors) {
+        delete loop;
+    }
 }
 
 
@@ -41,27 +45,32 @@ void Server::newConnection(Socket *sock){
         return;
     }
     int random = sock->getFd() % subReactors.size();
-    Connection *conn = new Connection(subReactors[random], sock);
+
+    // Connection *conn = new Connection(subReactors[random], sock);
+    // 改智能指针管理连接对象
+    std::shared_ptr<Connection> conn = std::make_shared<Connection>(subReactors[random], sock);
+    
     std::function<void(int)> cb = std::bind(&Server::deleteConnection, this, std::placeholders::_1);
     conn->setDeleteConnectionCallback(cb);
     connections[sock->getFd()] = conn;
+
+    printf("[Server] New connection fd=%d assigned to subReactor[%d]\n",
+           sock->getFd(), random);
 }
 
 void Server::deleteConnection(int sockfd){
     if(sockfd == -1) {
         return;
     }
-    if(connections.find(sockfd) == connections.end()) {
-        return;
+    auto it = connections.find(sockfd);
+    if (it != connections.end()) {
+        printf("[Server] Removing connection fd=%d\n", sockfd);
+        connections.erase(it); // shared_ptr 自动释放
     }
-    Connection *conn = connections[sockfd];
-    connections.erase(sockfd);
-    // close(sockfd);
-    delete conn;
 }
 
 int Server::getConnectionCount() {
-    return connections.size();
+    return static_cast<int>(connections.size());
 }
 
 void Server::monitorMatchPool() {

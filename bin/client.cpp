@@ -15,7 +15,7 @@ atomic<bool> isRunning(true);
 // 接收服务器消息的线程函数
 void receiveMessages(int sockfd, Buffer* readBuffer) {
     while (isRunning) {
-        std::vector<char> buf(1024);
+        std::vector<char> buf(128);
         bzero(buf.data(), buf.size());
         ssize_t read_bytes = read(sockfd, buf.data(), buf.size());
         if (read_bytes > 0) {
@@ -67,6 +67,7 @@ int main() {
             break;
         }
     }
+    
     // 等待接收线程退出
     if (receiverThread.joinable()) {
         receiverThread.join();

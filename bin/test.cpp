@@ -30,7 +30,7 @@ void oneClient(int msgs, int wait){
             break;
         }
         int already_read = 0;
-        std::vector<char> buf(1024);
+        std::vector<char> buf(128);
         while(true){
             bzero(buf.data(), buf.size());
             ssize_t read_bytes = read(sockfd, buf.data(), buf.size());

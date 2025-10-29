@@ -1,6 +1,7 @@
 #pragma once
-#include <map>
 #include <vector>
+#include <memory>
+#include <unordered_map>
 #include "MatchManager.h"
 
 class EventLoop;
@@ -8,12 +9,15 @@ class Socket;
 class Acceptor;
 class Connection;
 class ThreadPool;
+
+
+// 服务器
 class Server
 {
 private:
     EventLoop *mainReactor; //主reactor
     Acceptor *acceptor;
-    std::map<int, Connection*> connections; //连接池<sockfd, Connection*>
+    std::unordered_map<int, std::shared_ptr<Connection>> connections; //连接池<sockfd, Connection*>
     std::vector<EventLoop*> subReactors; // 从reactor
     ThreadPool *thpool; // 线程池
 public:
@@ -39,7 +43,15 @@ public:
     */
     void deleteConnection(int sockfd);
 
+    /**
+    * @brief 获取当前连接数
+    * @return 当前连接数
+    */
     int getConnectionCount();
 
+    /**
+    * @brief 监控匹配池中的玩家数量
+    * @note 每隔5秒打印一次当前匹配池中的玩家数量
+    */
     void monitorMatchPool();
 };

@@ -1,5 +1,6 @@
 #include "Connection.h"
 #include "Channel.h"
+#include "EventLoop.h"
 #include "MatchManager.h"
 #include "network/Socket.h"
 #include "util/util.h"
@@ -9,32 +10,30 @@
 #include <iostream>
 #include <vector>
 #include <thread>
-#include <atomic>
 
 Connection::Connection(EventLoop *_loop, Socket *_sock)
 : loop(_loop), sock(_sock), channel(nullptr), readBuffer(nullptr), state(ConnState::LOBBY)
 {
-    channel = new Channel(loop, sock->getFd());
+    // channel = new Channel(loop, sock->getFd());
+    channel = std::make_unique<Channel>(loop, sock->getFd());
     channel->enableRead();
     channel->useET();
     std::function<void()> cb = std::bind(&Connection::echo, this, sock->getFd());
     channel->setReadCallback(cb);
-    readBuffer = new Buffer();
+    readBuffer = std::make_unique<Buffer>();
 }
 
 Connection::~Connection(){
-    delete channel;
-    delete sock;
-    delete readBuffer;
+    // 智能指针自动释放
 }
 
 void Connection::setDeleteConnectionCallback(std::function<void(int)> _cb){
-    deleteConnectionCallback = _cb;
+    deleteConnectionCallback = std::move(_cb);
 }
 
 
 void Connection::echo(int sockfd){
-    std::vector<char> buf(1024); //动态缓冲区
+    std::vector<char> buf(128); //动态缓冲区
     while(true){
         //由于使用非阻塞IO，读取客户端buffer，一次读取buf大小数据，直到全部读取完毕
         ssize_t bytes_read = read(sockfd, buf.data(), buf.size());
@@ -65,7 +64,7 @@ void Connection::echo(int sockfd){
         }
     }
     // 回显并清空缓冲区
-    if (!readBuffer->size() == 0) {
+    if (readBuffer->size() != 0) {
         sendEco(sockfd);
         readBuffer->clear(); 
     }
@@ -73,36 +72,28 @@ void Connection::echo(int sockfd){
     if (state == ConnState::EXITED) {
         printf("client fd %d disconnected\n", sockfd);
         deleteConnectionCallback(sockfd);           
-        return;
     }
 }
 
 void Connection::sendEco(int sockfd){
-    char buf[readBuffer->size()];
-    strcpy(buf, readBuffer->c_str());
-    int  data_size = readBuffer->size(); 
-    int data_left = data_size;
-    while (data_left > 0)
-    { 
-        ssize_t bytes_write = write(sockfd, buf + data_size - data_left, data_left); 
-        if (bytes_write == -1 && errno == EAGAIN) { 
-            break;
-        }
-        data_left -= bytes_write; 
+    const char *data = readBuffer->c_str();
+    size_t size = readBuffer->size();
+    size_t sent = 0;
+    while (sent < size) {
+        ssize_t n = write(sockfd, data + sent, size - sent);
+        if (n == -1 && errno == EAGAIN) break;
+        sent += n;
     }
 }
 
-void Connection::send(int sockfd, std::string message) {
-    int data_size = message.size();
-    int data_left = data_size;
-    const char* buf = message.c_str();
-    while (data_left > 0)
-    { 
-        ssize_t bytes_write = write(sockfd, buf + data_size - data_left, data_left); 
-        if (bytes_write == -1 && errno == EAGAIN) { 
-            break;
-        }
-        data_left -= bytes_write; 
+void Connection::send(int sockfd, const std::string &message) {
+    const char *data = message.c_str();
+    size_t size = message.size();
+    size_t sent = 0;
+    while (sent < size) {
+        ssize_t n = write(sockfd, data + sent, size - sent);
+        if (n == -1 && errno == EAGAIN) break;
+        sent += n;
     }
 }
 
@@ -110,55 +101,63 @@ int Connection::getSockfd() {
     return this->sock->getFd();
 }
 
-void Connection::setState(ConnState _state) {
-    this->state = _state;
-    return;
+ConnState Connection::getState() {
+    return this->state.load();
 }
 
-void Connection::handleMessage(std::string _message, int sockfd) {
-    if (_message == "start_match" && this->state == ConnState::LOBBY) {
-        // 用户加入匹配池
-        this->state = ConnState::MATCHING;
-        MatchManager::getInstance().addPlayer(this);
-        printf("User fd %d start matching\n", sockfd);
+void Connection::setState(ConnState _state) {
+    this->state.store(_state);
+}
 
-        // 启动匹配线程进行匹配
-        std::thread([this, sockfd]() {
-            auto startTime = std::chrono::steady_clock::now();
+EventLoop* Connection::getLoop() {
+    return this->loop;
+}
 
-            while (this->state == ConnState::MATCHING) {
-                // 检查是否超时
-                auto currentTime = std::chrono::steady_clock::now();
-                auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
-                if (elapsedTime >= 15) {
-                    // 匹配超时，移除用户并退出线程
-                    this->state = ConnState::LOBBY;
-                    MatchManager::getInstance().removePlayer(this);
-                    printf("Matching timeout for user fd %d\n", sockfd);
-                    break;
-                }
-                // 调用匹配逻辑
-                bool matched = MatchManager::getInstance().matching(this);
-                if (matched) {
-                    break;
-                }
+void Connection::startMatchTimer() {
+    matchStartTime = std::chrono::steady_clock::now();
+}
 
-                this->send(sockfd,"Matching..., elapsedTime: " + std::to_string(elapsedTime) + ".\n");
-                // 休眠1秒后继续匹配
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-        }).detach();
-    } 
+bool Connection::isMatchTimedOut(int timeoutSeconds) {
+    auto currentTime = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - matchStartTime).count();
+    return elapsedTime >= timeoutSeconds;
+}
+
+void Connection::handleMessage(const std::string &_message, int sockfd) {
+    if (_message.empty()) return;
+
+    if (_message == "exit") {
+        this->state = ConnState::EXITED;
+        return;
+    }
+
     if (_message == "quit") {
-        if (this->state == ConnState::LOBBY) {
-            this->state = ConnState::EXITED;
-            return;
-        }
         if (this->state == ConnState::MATCHING) {
             // 用户退出匹配池
             this->state = ConnState::LOBBY;
-            MatchManager::getInstance().removePlayer(this);
+            auto self = shared_from_this();
+            MatchManager::getInstance().removePlayer(self);
             this->send(sockfd, "You have exited the matching queue.\n");
         }
+        return;
+    }
+
+    if (_message == "start match" && this->state == ConnState::LOBBY) {
+        // 用户加入匹配池
+        this->state = ConnState::MATCHING;
+
+        auto self = shared_from_this();
+        self->startMatchTimer(); // 计时
+        MatchManager::getInstance().addPlayer(self);
+
+        printf("User fd %d start matching\n", sockfd);
+    }
+}
+
+void Connection::runInLoop(std::function<void()> cb) {
+    if (loop->isInLoopThread()) {
+        cb(); // 在 loop 自己线程直接执行
+    } else {
+        loop->queueInLoop(std::move(cb)); // 跨线程调度到 loop 对应的主线程去执行
     }
 }
