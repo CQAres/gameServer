@@ -42,7 +42,7 @@ struct WeakPtrEqual {
 
 class MatchManager {
 private:
-    MatchManager() = default; // 构造函数私有化（单例）
+    MatchManager(); // 构造函数私有化（单例）
     ~MatchManager();
 
     // std::unordered_set<Connection*> matchPool; // 匹配池

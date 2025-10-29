@@ -29,9 +29,15 @@ Server::Server(EventLoop *_loop)
         std::function<void()> sub_loop = std::bind(&EventLoop::loop, subReactors[i]);
         thpool->add(sub_loop);
     }
+    
+    MatchManager& manager = MatchManager::getInstance();
+    manager.start();
 }
 
 Server::~Server(){
+    MatchManager& manager = MatchManager::getInstance();
+    manager.start();
+
     delete acceptor;
     delete thpool;
     for (auto* loop : subReactors) {

@@ -1,6 +1,6 @@
 # 定义编译器选项
 CXX := g++
-CXXFLAGS := -std=c++11 -pthread -g -I..
+CXXFLAGS := -std=c++14 -pthread -g -I..
 
 # 自动查找源文件
 LIB_SRC := $(wildcard ../lib/*.cpp)
