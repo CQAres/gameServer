@@ -23,6 +23,9 @@ int main() {
 
     loop->loop();
 
+    if (monitorThread.joinable()) {
+        monitorThread.join();
+    }
     server->~Server();
     loop->~EventLoop();
     return 0;

@@ -19,24 +19,14 @@ struct WeakPtrHash {
         if (auto sp = w.lock()) {
             return std::hash<Connection*>()(sp.get());
         }
-        return 0;
-    }
-    size_t operator()(const std::shared_ptr<Connection>& sp) const {
-        return std::hash<Connection*>()(sp.get());
+        // 返回一个伪随机地址避免所有expired堆在同一桶
+        return reinterpret_cast<size_t>(this);
     }
 };
 
 struct WeakPtrEqual {
-    bool operator()(const std::weak_ptr<Connection>& w1, const std::weak_ptr<Connection>& w2) const {
+    bool operator()(const std::weak_ptr<Connection>& w1, const std::weak_ptr<Connection>& w2) const noexcept {
         return !w1.owner_before(w2) && !w2.owner_before(w1);
-    }
-
-    bool operator()(const std::weak_ptr<Connection>& w, const std::shared_ptr<Connection>& s) const {
-        return !w.owner_before(s) && !s.owner_before(w);
-    }
-
-    bool operator()(const std::shared_ptr<Connection>& s, const std::weak_ptr<Connection>& w) const {
-        return !w.owner_before(s) && !s.owner_before(w);
     }
 };
 
@@ -57,9 +47,24 @@ private:
     std::thread deleteThread; // 匹配池清理线程
     std::atomic<bool> running; // 匹配线程运行状态
 
-    void matchLoop(); // 匹配循环
+    /**
+    * @brief 匹配函数
+    * 每隔1s检查匹配池中是否有2个以上连接，有则匹配，并将匹配结果发送给客户端
+    */
+    void matchLoop();
+
+    /**
+    * @brief 清理函数
+    * 每隔1s检查匹配池中是否有过期/无效连接，有则删除
+    */
+    void deleteLoop();
+
 public:
     static MatchManager& getInstance();
+
+    /// 禁止拷贝与赋值
+    MatchManager(const MatchManager&) = delete;
+    MatchManager& operator=(const MatchManager&) = delete;
     
     /**
     * @brief 将连接添加到匹配池中
@@ -88,10 +93,4 @@ public:
     * @brief 停止匹配线程
     */
     void stop();
-
-    /**
-    * @brief 清理函数
-    * 每隔1s检查匹配池中是否有过期/无效连接，有则删除
-    */
-    void deleteLoop();
 };

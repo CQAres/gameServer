@@ -115,7 +115,7 @@ void MatchManager::matchLoop() {
                 });
                 printf("Matched fd %d <-> fd %d\n", player1->getSockfd(), player2->getSockfd());
                 // 创建游戏实例
-                Game* game = new Game(player1.get(), player2.get());
+                Game* game = new Game(player1, player2);
             }
         }
     }

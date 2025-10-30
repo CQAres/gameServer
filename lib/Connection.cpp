@@ -7,9 +7,7 @@
 #include "util/Buffer.h"
 #include <unistd.h>
 #include <string.h>
-#include <iostream>
 #include <vector>
-#include <thread>
 
 Connection::Connection(EventLoop *_loop, Socket *_sock)
 : loop(_loop), sock(_sock), channel(nullptr), readBuffer(nullptr), state(ConnState::LOBBY)
@@ -18,8 +16,15 @@ Connection::Connection(EventLoop *_loop, Socket *_sock)
     channel = std::make_unique<Channel>(loop, sock->getFd());
     channel->enableRead();
     channel->useET();
-    std::function<void()> cb = std::bind(&Connection::echo, this, sock->getFd());
-    channel->setReadCallback(cb);
+
+    // 捕获 shared_ptr，确保回调期间对象不会被析构
+    std::shared_ptr<Connection> self = shared_from_this();
+    channel->setReadCallback([self, fd=sock->getFd()](){
+        self->echo(fd);
+    });
+    // std::function<void()> cb = std::bind(&Connection::echo, this, sock->getFd());
+    // channel->setReadCallback(cb);
+    
     readBuffer = std::make_unique<Buffer>();
 }
 
@@ -76,6 +81,7 @@ void Connection::echo(int sockfd){
 }
 
 void Connection::sendEco(int sockfd){
+    if (sockfd == -1) return;
     const char *data = readBuffer->c_str();
     size_t size = readBuffer->size();
     size_t sent = 0;
@@ -87,6 +93,7 @@ void Connection::sendEco(int sockfd){
 }
 
 void Connection::send(int sockfd, const std::string &message) {
+    if (sockfd == -1) return;
     const char *data = message.c_str();
     size_t size = message.size();
     size_t sent = 0;
@@ -127,29 +134,42 @@ void Connection::handleMessage(const std::string &_message, int sockfd) {
     if (_message.empty()) return;
 
     if (_message == "exit") {
-        this->state = ConnState::EXITED;
-        return;
+        if (this->state == ConnState::MATCHING) {
+            auto self = shared_from_this();
+            MatchManager::getInstance().removePlayer(self);
+            this->send(sockfd, "You have disconnected from the server.\n");
+            setState(ConnState::EXITED);
+            return;
+        }
+
+        if (this->state == ConnState::IN_GAME) {
+            this->send(sockfd, "You have disconnected from the server.\n");
+            setState(ConnState::EXITED);
+            return;
+        }
+
+        if (this->state == ConnState::LOBBY) {
+            this->send(sockfd, "You have disconnected from the server.\n");
+            setState(ConnState::EXITED);
+            return;
+        }
     }
 
     if (_message == "quit") {
-        if (this->state == ConnState::MATCHING) {
-            // 用户退出匹配池
-            this->state = ConnState::LOBBY;
-            auto self = shared_from_this();
-            MatchManager::getInstance().removePlayer(self);
-            this->send(sockfd, "You have exited the matching queue.\n");
-        }
-        return;
+        if (this->state != ConnState::MATCHING) return;
+        // 用户退出匹配池
+        setState(ConnState::LOBBY);
+        auto self = shared_from_this();
+        MatchManager::getInstance().removePlayer(self);
+        this->send(sockfd, "You have exited the matching queue.\n");
     }
 
     if (_message == "start match" && this->state == ConnState::LOBBY) {
         // 用户加入匹配池
-        this->state = ConnState::MATCHING;
-
+        setState(ConnState::MATCHING);
         auto self = shared_from_this();
         self->startMatchTimer(); // 计时
         MatchManager::getInstance().addPlayer(self);
-
         printf("User fd %d start matching\n", sockfd);
     }
 }
